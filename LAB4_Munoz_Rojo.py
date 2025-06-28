@@ -3,9 +3,10 @@ import os ,random,threading
 
 class Celula:
 
-    def __init__(self,id,tipo):
+    def __init__(self,id,tipo,historia):
         self.id =id
         self.tipo=tipo
+        self.historia=historia
     
     def __str__(self):
         return f"Célula(ID={self.id}, Tipo={self.tipo})"
@@ -13,13 +14,33 @@ class Celula:
     def datos(self):
         return (self.id,self.tipo)
 
+    def actualizador_historial(self,llave,valor):
+        historial=self.historia
+        historial[llave]=valor
+        self.historia=historial
+
+
+
+
+    # Getter 
+    def getter_tipo(self):
+        return self.tipo
+    def getter_numero(self):
+        return self.id
+    def getter_historial(self):
+        return self.historia
+    
+
+
+
 
 
 nombre_archivo=["aislamiento","ronda_","diagnostico_final","acciones_anticuerpo"]
 tipo={"Alien":0,"Humano":1,"Infectado":3}
 tipo_arreglo=["Alien","Humano"]
 
-historia={"1":4,"2":4,"3":4,"4":4,"5":4}
+historia={"0":4,"1":4,"2":4,"3":4,"4":4,"5":4}
+
 
 
 
@@ -67,23 +88,23 @@ for _ in range(512):
     if (numero_alien_inicial > 0) and ((contador_celulas_humanas <= 25) and (contador_celulas_humanas >= 10) ):
         probablidad_tipo=random.randint(0,1)
         if probablidad_tipo == 0:
-            arreglo_celulas.append(Celula(id_celula,tipo_arreglo[probablidad_tipo]))
+            arreglo_celulas.append(Celula(id_celula,tipo_arreglo[probablidad_tipo],historia))
             numero_alien_inicial-=1
             contador_celulas_humanas=0
         else:
-            arreglo_celulas.append(Celula(id_celula,tipo_arreglo[1]))
+            arreglo_celulas.append(Celula(id_celula,tipo_arreglo[1],historia))
             contador_celulas_humanas+=1
     else:
-        arreglo_celulas.append(Celula(id_celula,tipo_arreglo[1]))
+        arreglo_celulas.append(Celula(id_celula,tipo_arreglo[1],historia))
         contador_celulas_humanas+=1
     
 
 
 for celula_propia in arreglo_celulas:
-    print(celula_propia.datos())
+    print(celula_propia.historia)
 
 
-archivos_creacion(nombre_archivo[0],arreglo_celulas)
+#archivos_creacion(nombre_archivo[0],arreglo_celulas)
 
 
 
