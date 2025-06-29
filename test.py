@@ -66,6 +66,7 @@ def escribir_archivo(nombre_archivo, diccio_celulas):
         for celula in diccio_celulas[tipo]:
             archivo.write(f"\tCelula {celula}\n")
     archivo.close()
+
     return
 
 threads = []
@@ -109,7 +110,7 @@ escribir_archivo("aislamiento.txt", diccio_celulas)
 
 
 ## Logica de Rondas
-contador_rondas = 0
+contador_rondas = 1
 tiempo_ronda = 0
 
 while contador_rondas < 5:
