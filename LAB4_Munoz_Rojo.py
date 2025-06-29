@@ -1,62 +1,55 @@
-import os ,random,threading,time
+import threading, random, time
 
 class Celula:
-    #constructor de la clase celula
-    def __init__(self,id,tipo,historial):
-        self.id =id
-        self.tipo=tipo #Alien, Humano, Infectado
-        self.historial=historial #Infectado: {0-4} | No-infectado: {-1}
-    
+    def __init__(self, id: int, tipo: str, historial: dict):
+        """
+        id       : identificador único de la célula
+        tipo     : "Alien", "Humano" o "Infectado"
+        historial: diccionario que guarda eventos, p.ej.
+                   {'combates': [(ronda, oponente_id, resultado), ...]}
+        """
+        self.id = id
+        self.tipo = tipo
+        self.historial = historial.copy()
+        # candado propio para proteger cambios concurrentes
+        self.lock = threading.Lock()
+
     def __str__(self):
         return f"Célula(ID={self.id}, Tipo={self.tipo})"
-    
-    def datos(self):
-        return (self.id,self.tipo)
 
-    def registra_historial(self,llave,valor):
-        historial=self.historial
-        historial[llave]=valor
-        self.historial=historial
+    def registrar_combate(self, ronda: int, oponente_id: int, resultado: str):
+        """
+        Guarda en el historial un tupla (ronda, oponente_id, resultado),
+        p.ej. resultado puede ser "victoria" o "derrota".
+        """
+        with self.lock:
+            self.historial.setdefault('combates', []).append(
+                (ronda, oponente_id, resultado)
+            )
 
-    #se espera que ronda actual es un int
-    def infeccion(self,ronda_actual):
-        tipo=[]
-        if ronda_actual >= 2:
-            if (self.tipo == "Infectado"):
-                historial=self.historial
-                contador=0
-                while contador <2:
-                    ronda_actual-=1
-                    tipo.append(historial[ronda_actual])
-                    contador+=1
-                contador = tipo.count("Infectado")
+    def actualizar_tipo(self, nuevo_tipo: str):
+        """Cambia el tipo (“Alien”, “Humano”, “Infectado”), de forma segura."""
+        with self.lock:
+            self.tipo = nuevo_tipo
 
-                print(tipo,contador)
-                if contador == 2:
-                    self.tipo="Alien"
+    def obtener_tipo(self) -> str:
+        """Devuelve el tipo actual de la célula."""
+        with self.lock:
+            return self.tipo
 
-            
+    def obtener_historial(self) -> dict:
+        """Devuelve una copia del historial."""
+        with self.lock:
+            return self.historial.copy()
 
-    def setter_tipo(self,tipo):
-        self.tipo=tipo
-    
-    # Getter 
-    def getter_tipo(self):
-        return self.tipo
-    def getter_numero(self):
-        return self.id
-    def getter_historial(self):
-        return self.historial
 
-lock = threading.Lock()
-
-def crear_celula(id,tipo,historial, diccio_celulas):
-    print(f"[Hilo {threading.current_thread().name}] Creando célula ID={id}, tipo={tipo}")
-    cel = Celula(id, tipo, historial.copy())
-    with lock:
-        if tipo not in diccio_celulas:
-            diccio_celulas[tipo] = []
-        diccio_celulas[tipo].append(id)
+def celula_worker(cel: Celula):
+    for ronda in range(5):
+        start_barrier.wait()   # espera main
+        opp = id_map[pairings[cel.id]]
+        # adquiere locks y resuelve el combate...
+        end_barrier.wait()
+    return
 
 def escribir_archivo(nombre_archivo, diccio_celulas):
     archivo = open(nombre_archivo, "w")
@@ -65,17 +58,8 @@ def escribir_archivo(nombre_archivo, diccio_celulas):
         for celula in diccio_celulas[tipo]:
             archivo.write(f"\tCelula {celula}\n")
     archivo.close()
-
     return
 
-num_alien = 0
-threads = []
-diccio_celulas = {}
-
-contador_celulas_humanas = 0
-id_celula = 0
-
-historial = []
 
 ## Crear archivos de rondas
 for cont_archivo  in range(5):
@@ -83,60 +67,50 @@ for cont_archivo  in range(5):
     archivo.close()
 
 ## Iniciacion de las celulas 
-for _ in range(512):
-    id_celula += 1
-    if (num_alien <= 16) and ((contador_celulas_humanas <= 25) and (contador_celulas_humanas >= 10) ):
-        probablidad_tipo=random.randint(0,1)
-        if probablidad_tipo == 0:
-            t = threading.Thread(
-                target=crear_celula,
-                args=(id, "Alien", historial, diccio_celulas)
-            )
-            t.start()
-            threads.append(t)
-            num_alien += 1
-        else:
-            t = threading.Thread(
-                target=crear_celula,
-                args=(id, "Humano", historial, diccio_celulas)
-            )
-            t.start()
-            threads.append(t)
-            contador_celulas_humanas+=1
-    else:
-        t = threading.Thread(
-            target=crear_celula,
-            args=(id, "Humano", historial, diccio_celulas)
-        )
-        t.start()
-        threads.append(t)
-        contador_celulas_humanas+=1
+num_alien  = 0
+num_humano = 0
+historial_inicial = {}
+diccio_celulas = {}
 
-for t in threads:
-    t.join()
+celulas = []
+for i in range(512):
+    tipo = "Alien" if (random.randint(0,1)==0 and num_alien<16) else "Humano" #como el operador ternario ( ? :)
+    if tipo == "Alien": 
+        num_alien += 1
+    else: 
+        num_humano += 1
+
+    celulas.append(Celula(i+1, tipo, historial_inicial))
+
+    if tipo not in diccio_celulas:
+            diccio_celulas[tipo] = []
+    diccio_celulas[tipo].append(id)
+
+## Enlazar cada celula con su respectivo hilo
+threads = []
+id_map = { c.id: c for c in celulas }
+for cel in celulas:
+    t = threading.Thread(target=celula_worker, args=(cel))
+    t.start()
+    threads.append(t)
 
 ## Escribir configuración inicial
-# Escribimos lista inicial de celulas y su tipo en el archivo aislamiento.txt
 escribir_archivo("aislamiento.txt", diccio_celulas)
 
-
-## Logica de Rondas
-contador_rondas = 0
-tiempo_ronda = 0
-
-while contador_rondas < 5:
-    lista_combate = []
+tiempo_ronda = 10 #segundos
+## Rondas
+for ronda in range(1,6):
+    random.shuffle(celulas)
     tiempo_inicio=time.monotonic()
     while time.monotonic() - tiempo_inicio < tiempo_ronda:
-        ## Logica de Combate
-        # tomo las celulas y las bloqueo
-        # en su historial escribo con quien se enfretaron y que paso
-        # como puede haber más de un combate -> 
-        # escirbir directo en archivo
-        print("termino ronda")
-    ##termino ronda
-    # escribimos lo que sucedio en ronda_X.txt, recuperado del historial de las celulas
-    contador_rondas+=1
+        for i in range(0, len(celulas), 2):
+            a, b = celulas[i], celulas[i+1]
+            pairings[a.id] = b.id
+            pairings[b.id] = a.id
 
-## Termino del juego
-# escribimos en diagnostico_final.txt lista de celulas alienigenas y lista de celulas humanas
+        # 2) Desatar combates
+        start_barrier.wait()
+        # 3) Esperar a que todas terminen
+        end_barrier.wait()
+
+
