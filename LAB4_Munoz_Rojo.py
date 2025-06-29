@@ -1,14 +1,16 @@
 import os ,random,threading,time
 
 class Celula(threading.Thread):
-    #constructor de la clase celula
-    candado_archivo=threading.Lock()
-    def __init__(self,id,tipo,historial):
-        threading.Thread.__init__(self)
-        self.id =id
-        self.tipo=tipo
-        self.historial=historial
-        self.candado= threading.Lock()
+    lock_archivo = threading.Lock()
+
+    # Constructor:
+    def __init__(self,id,tipo):
+        super.__init__()
+        self.id = id
+        self.tipo = tipo                # "Alien", "Humano", "Infectado"
+        self.historial = {}             # {ronda: estado}
+        self.lock = threading.Lock()
+        #self.ronda_infeccion = None    # Para el bonus
     
     def __str__(self):
         return f"Célula(ID={self.id}, Tipo={self.tipo})"
@@ -123,20 +125,13 @@ def combate(celula1,celula2):
     frase_final=f"{frase} -- El resultado es: {resultado}"
     return frase_final
     
-def probablidad_infeccion():
-    probablidad_infeccion = random.randint(1, 10)
-
-    if (probablidad_infeccion >= 7): #Probalididad de que no se infecte 30%
-        return False
-    else:
-        return True
+def probablidad_infeccion(probabilidad: int = 70) -> bool:
+    return random.random() < (probabilidad/100)
 
 arreglo_celulas=[]
 num_alien = 0
 num_humano = 0
 id_celula=0
-#Iniciacion de las celulas 
-# Falta Incorporal el Hilo 
 historial=[]
 diccio_celulas = {}
 
@@ -173,51 +168,42 @@ escribir_archivo("aislamiento.txt", diccio_celulas)
 ## Logica de Rondas
 contador_rondas=1
 
-while contador_rondas <=5:
-    lista_enfrentaminetos= []
-    tiempo_ronda=0.1
-    tiempo_inicio=time.monotonic()
-    numero_combate=0
+while contador_rondas <= 5:
+    lista_enfrentaminetos = []
+    tiempo_ronda = 10 #segundos
+    tiempo_inicio = time.monotonic()
+    numero_combate = 0
     
     while time.monotonic() - tiempo_inicio < tiempo_ronda:
         #logica de Combate 
+        random1 = random.randint(0,511)
+        random2 = random.randint(0,511)
+        # Se encuentran 2 celulas
+        celula_1 = arreglo_celulas[random1]
+        celula_2 = arreglo_celulas[random2]
 
-        random1=random.randint(0,511)
-        random2=random.randint(0,511)
-        # Se hacen encuentran 2 celulas
-        celula_1=arreglo_celulas[random1]
-        celula_2=arreglo_celulas[random2]
-
-        resultado=combate(celula_1,celula_2)
+        resultado = combate(celula_1,celula_2)
         lista_enfrentaminetos.append(f'Enfrentamiento {numero_combate} - {resultado}')
-        numero_combate+=1
-    #logica de Archivo
-
-    archivo=open(f"Ronda_{contador_rondas}.txt","w")
+        
+        numero_combate += 1
+    
+    # Volcar resultados en el archivo 'rondas_X.txt'
+    archivo = open(f"Ronda_{contador_rondas}.txt","w")
     for iteracion in lista_enfrentaminetos:
         archivo.write(f"{iteracion}  \n")
     archivo.close()
 
-    contador_rondas+=1
+    contador_rondas += 1
     print(numero_combate)
 
+# Diagnostico Final
 diccio_celulas={}
-# hace el control para imprimir el archivo necesario
 for celulas in arreglo_celulas:
     tipo=celulas.getter_tipo()
     if tipo not in diccio_celulas:
         diccio_celulas[tipo] = []
     diccio_celulas[tipo].append(celulas.getter_numero())
-        
-    
-# Se escriben el final
+
+# Volcar el diagnostico en el archivo 'diagnostico_final.txt'
 escribir_archivo("diagnostico_final.txt", diccio_celulas)
-
-
-#archivos_creacion(nombre_archivo[0],arreglo_celulas)
-
-
-
-
-
 
