@@ -1,18 +1,19 @@
 import os ,random,threading,time
 
-class Celula:
+class Celula(threading.Thread):
     #constructor de la clase celula
+    candado_archivo=threading.Lock()
     def __init__(self,id,tipo,historial):
+        threading.Thread.__init__(self)
         self.id =id
         self.tipo=tipo
         self.historial=historial
+        self.candado= threading.Lock()
     
     def __str__(self):
         return f"Célula(ID={self.id}, Tipo={self.tipo})"
     
-    def datos(self):
-        return (self.id,self.tipo)
-
+    #Aqui se hace 
     def registra_historial(self,llave,valor):
         historial=self.historial
         historial[llave]=valor
@@ -35,7 +36,17 @@ class Celula:
                 if contador == 2:
                     self.tipo="Alien"
 
-            
+
+    def escribir_archivo_inicial(self):
+        self.candado_archivo.acquire()
+        try:
+            archivo=open("aislamiento.txt","a")
+            archivo.write(f"La Celula {self.getter_numero()} es del tipo {self.getter_tipo()} \n")
+            archivo.close()
+        finally:
+            self.candado_archivo.release()
+
+        
 
     def setter_tipo(self,tipo):
         self.tipo=tipo
@@ -47,27 +58,71 @@ class Celula:
         return self.id
     def getter_historial(self):
         return self.historial
-    
-
-
-
-
-
-
-tipo=["Alien","Humano","Infectado"]
-tipo_arreglo=["Alien","Humano"]
 
 historia={0:"",1:"",2:"",3:"",4:"",5:""}
+
+## Crear archivos de rondas
+for cont_archivo  in range(5):
+    archivo = open(f"Ronda_{cont_archivo+1}.txt", "w")
+    archivo.close()
+## Crear archivos iniciales y finales 
+for nombre in ["aislamiento","diagnostico_final"]:
+    archivo = open(f"{nombre}.txt", "w")
+    archivo.close()
+
 
 
 #Funciones AUXILIARES
 
-def crear_celula(id,tipo,historial):
-    print(f"[Hilo {threading.current_thread().name}] Creando célula ID={id}, tipo={tipo}")
-    celula=Celula(id,tipo,historial)
+#Logica para poder escribir las cosas 
+def escribir_archivo(nombre_archivo, diccio_celulas):
+    archivo = open(nombre_archivo, "w")
+    for tipo in diccio_celulas:
+        archivo.write(f"{tipo}:\n")
+        for celula in diccio_celulas[tipo]:
+            archivo.write(f"\tCelula {celula}\n")
+    archivo.close()
+    return
 
+def combate(celula1,celula2):
 
-
+    primero, segundo = [celula1, celula2]
+    acquired1 = acquired2 = False
+    try:
+        frase=f"La Celula {celula1.getter_numero()} se enfrentara con la Celula {celula2.getter_numero()}"
+        resultado=""
+        # Adquirimos candados en orden
+        acquired1 = primero.candado.acquire(timeout=1)
+        acquired2 = segundo.candado.acquire(timeout=1)
+        lista=[celula1.getter_tipo(),celula2.getter_tipo()]
+        if (( "Humano" in lista ) and (("Alien" in lista ) or ("Infectado" in lista ))):
+            ##hay pelea entere las personas 
+            if (probablidad_infeccion()):
+                if (celula1.getter_tipo() == "Humano"):
+                    celula1.setter_tipo("Infectado")
+                    resultado=f"La Celula {celula1.getter_numero()} fue infectada"
+                else:
+                    celula2.setter_tipo("Infectado")
+                    resultado=f"La Celula {celula2.getter_numero()} fue infectada"
+            else:
+                if (celula1.getter_tipo() == "Humano"):  
+                    resultado=f"La Celula {celula1.getter_numero()} no fue infectada"
+                else:
+                    resultado=f"La Celula {celula2.getter_numero()} no fue infectada"
+        else:
+            contador=lista.count("Humano")
+            if contador ==2:
+                resultado=f"La Celula {celula1.getter_numero()} y {celula2.getter_numero()} no hacen nada  "
+            else:
+                resultado = f"La Celula {celula1.getter_numero()} y {celula2.getter_numero()} van a coperaran  "
+    finally:
+        if acquired2:
+            segundo.candado.release()
+        if acquired1:
+            primero.candado.release()
+    frase_final=f"{frase} -- El resultado es: {resultado}"
+    return frase_final
+    
 def probablidad_infeccion():
     probablidad_infeccion = random.randint(1, 10)
 
@@ -76,76 +131,87 @@ def probablidad_infeccion():
     else:
         return True
 
-
-def combate(celula1,celula2,n_ronda):
-    lista=[celula1.getter_tipo,celula2.getter_tipo]
-    if (( "Humano" in lista ) and (("Alien" in lista ) or ("Infectado" in lista ))):
-        ##hay pelea entere las personas 
-        if (probablidad_infeccion()):
-            if (celula1.getter_tipo == "Humano"):
-                celula1.setter_tipo("Infectado")
-            else:
-                celula2.setter_tipo("Infectado")
-
-
-
-nombre_archivo=["aislamiento","ronda_","diagnostico_final","acciones_anticuerpo"]
-def archivos_creacion(nombre,lista_celulas,Nronda=0,):
-
-    if Nronda==0 or Nronda==6:
-        f=open(f"output\{nombre}.txt","w")
-    else:
-        f=open(f"{nombre}{Nronda}.txt","w")
-
-    for celula in lista_celulas:
-        celula_n=celula.datos()
-
-        f.write(f"La célula número {celula_n[0]} es del tipo {celula_n[1]} \n")
-
-
-numero_alien_inicial=16
 arreglo_celulas=[]
-
-contador_celulas_humanas=0
-numero_celulas_totales=0
+num_alien = 0
+num_humano = 0
 id_celula=0
 #Iniciacion de las celulas 
 # Falta Incorporal el Hilo 
+historial=[]
+diccio_celulas = {}
 
 for _ in range(512):
-    id_celula+=1
-    if (numero_alien_inicial > 0) and ((contador_celulas_humanas <= 25) and (contador_celulas_humanas >= 10) ):
-        probablidad_tipo=random.randint(0,1)
-        if probablidad_tipo == 0:
-            arreglo_celulas.append(threading.Thread(target=crear_celula, args=(id_celula,tipo_arreglo[probablidad_tipo],historia)))
-            numero_alien_inicial-=1
-            contador_celulas_humanas=0
-        else:
-            t=threading.Thread(target=crear_celula, args=(id_celula,tipo_arreglo[probablidad_tipo],historia))
-            arreglo_celulas.append(t)
-            t.start()
-            contador_celulas_humanas+=1
-    else:
-        t=threading.Thread(target=crear_celula, args=(id_celula,tipo_arreglo[1],historia))
+    id_celula += 1
+    tipo=""
+    probablidad_tipo=random.randint(0,1)
+    if probablidad_tipo == 0 and (num_alien < 16):
+        tipo="Alien"
+        t = Celula(id_celula, "Alien", historial,)
+
         arreglo_celulas.append(t)
-        t.start()
-        contador_celulas_humanas+=1
-    
+        num_alien += 1
+    else:
+        tipo="Humano"
+        t = Celula(id_celula, "Humano", historial)
+        arreglo_celulas.append(t)
+        num_humano+=1
+
+    if tipo not in diccio_celulas:
+        diccio_celulas[tipo] = []
+    diccio_celulas[tipo].append(id_celula)
+
+
+
+for celulas in arreglo_celulas:
+    celulas.start()
+
+escribir_archivo("aislamiento.txt", diccio_celulas)
+
+
+
 
 ## Logica de Rondas
-contador_rondas=4
+contador_rondas=1
 
-while contador_rondas <5:
-    
-    tiempo_ronda=10
+while contador_rondas <=5:
+    lista_enfrentaminetos= []
+    tiempo_ronda=0.1
     tiempo_inicio=time.monotonic()
+    numero_combate=0
+    
     while time.monotonic() - tiempo_inicio < tiempo_ronda:
         #logica de Combate 
-        print(time.monotonic() - tiempo_inicio)
 
+        random1=random.randint(0,511)
+        random2=random.randint(0,511)
+        # Se hacen encuentran 2 celulas
+        celula_1=arreglo_celulas[random1]
+        celula_2=arreglo_celulas[random2]
+
+        resultado=combate(celula_1,celula_2)
+        lista_enfrentaminetos.append(f'Enfrentamiento {numero_combate} - {resultado}')
+        numero_combate+=1
     #logica de Archivo
-    contador_rondas+=1
 
+    archivo=open(f"Ronda_{contador_rondas}.txt","w")
+    for iteracion in lista_enfrentaminetos:
+        archivo.write(f"{iteracion}  \n")
+    archivo.close()
+
+    contador_rondas+=1
+    print(numero_combate)
+
+diccio_celulas={}
+# hace el control para imprimir el archivo necesario
+for celulas in arreglo_celulas:
+    tipo=celulas.getter_tipo()
+    if tipo not in diccio_celulas:
+        diccio_celulas[tipo] = []
+    diccio_celulas[tipo].append(celulas.getter_numero())
+        
+    
+# Se escriben el final
+escribir_archivo("diagnostico_final.txt", diccio_celulas)
 
 
 #archivos_creacion(nombre_archivo[0],arreglo_celulas)
