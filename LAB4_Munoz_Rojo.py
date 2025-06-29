@@ -1,12 +1,11 @@
-import os ,random,threading
-
+import os ,random,threading,time
 
 class Celula:
-
-    def __init__(self,id,tipo,historia):
+    #constructor de la clase celula
+    def __init__(self,id,tipo,historial):
         self.id =id
         self.tipo=tipo
-        self.historia=historia
+        self.historial=historial
     
     def __str__(self):
         return f"Célula(ID={self.id}, Tipo={self.tipo})"
@@ -15,16 +14,16 @@ class Celula:
         return (self.id,self.tipo)
 
     def registra_historial(self,llave,valor):
-        historial=self.historia
+        historial=self.historial
         historial[llave]=valor
-        self.historia=historial
+        self.historial=historial
 
     #se espera que ronda actual es un int
     def infeccion(self,ronda_actual):
         tipo=[]
         if ronda_actual >= 2:
             if (self.tipo == "Infectado"):
-                historial=self.historia
+                historial=self.historial
                 contador=0
                 while contador <2:
                     ronda_actual-=1
@@ -47,14 +46,14 @@ class Celula:
     def getter_numero(self):
         return self.id
     def getter_historial(self):
-        return self.historia
+        return self.historial
     
 
 
 
 
 
-nombre_archivo=["aislamiento","ronda_","diagnostico_final","acciones_anticuerpo"]
+
 tipo=["Alien","Humano","Infectado"]
 tipo_arreglo=["Alien","Humano"]
 
@@ -84,17 +83,17 @@ def combate(celula1,celula2,n_ronda):
         ##hay pelea entere las personas 
         if (probablidad_infeccion()):
             if (celula1.getter_tipo == "Humano"):
-                celula1.tipo="Infectado"
+                celula1.setter_tipo("Infectado")
             else:
-                celula2.tipo="Infectado"
+                celula2.setter_tipo("Infectado")
 
 
 
-
+nombre_archivo=["aislamiento","ronda_","diagnostico_final","acciones_anticuerpo"]
 def archivos_creacion(nombre,lista_celulas,Nronda=0,):
 
     if Nronda==0 or Nronda==6:
-        f=open(f"{nombre}.txt","w")
+        f=open(f"output\{nombre}.txt","w")
     else:
         f=open(f"{nombre}{Nronda}.txt","w")
 
@@ -110,7 +109,6 @@ arreglo_celulas=[]
 contador_celulas_humanas=0
 numero_celulas_totales=0
 id_celula=0
-
 #Iniciacion de las celulas 
 # Falta Incorporal el Hilo 
 
@@ -123,36 +121,35 @@ for _ in range(512):
             numero_alien_inicial-=1
             contador_celulas_humanas=0
         else:
-            arreglo_celulas.append(threading.Thread(target=crear_celula, args=(id_celula,tipo_arreglo[probablidad_tipo],historia)))
+            t=threading.Thread(target=crear_celula, args=(id_celula,tipo_arreglo[probablidad_tipo],historia))
+            arreglo_celulas.append(t)
+            t.start()
             contador_celulas_humanas+=1
     else:
-        arreglo_celulas.append(threading.Thread(target=crear_celula, args=(id_celula,tipo_arreglo[1],historia)))
+        t=threading.Thread(target=crear_celula, args=(id_celula,tipo_arreglo[1],historia))
+        arreglo_celulas.append(t)
+        t.start()
         contador_celulas_humanas+=1
     
 
+## Logica de Rondas
+contador_rondas=4
+
+while contador_rondas <5:
+    
+    tiempo_ronda=10
+    tiempo_inicio=time.monotonic()
+    while time.monotonic() - tiempo_inicio < tiempo_ronda:
+        #logica de Combate 
+        print(time.monotonic() - tiempo_inicio)
+
+    #logica de Archivo
+    contador_rondas+=1
 
 
-for t in arreglo_celulas:
-    t.start()
-
-
-
-
-
-"""
-tipo=["Alien","Humano","Infectado"]
-
-historia_t={0:"Humano",1:"Infectado",2:"Infectado",3:4,4:4,5:4}
-
-test=Celula(12,tipo[2],historia_t)
-
-print(test.historia)
-print(test.getter_tipo())
-test.infeccion(5)
-print(test.getter_tipo())
 
 #archivos_creacion(nombre_archivo[0],arreglo_celulas)
-"""
+
 
 
 
